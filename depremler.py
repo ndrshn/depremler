@@ -19,7 +19,7 @@ for i in range(startYear,endYear+1):
       items = data_dict["eqlist"]["earhquake"]
       for index,item in enumerate(items):
         results[str(j).zfill(2)].insert(index,{
-          "name": str(item["@name"]).strip(),
+          "date": str(item["@name"]).strip(),
           "location": str(item["@lokasyon"]).replace('\u00ddlksel','ilksel').replace('   ','').strip(),
           "lat": float(item["@lat"]),
           "lng": float(item["@lng"]),
