@@ -8,7 +8,7 @@ Bu küçük uygulama Kandilli Rasathanesi'nin sitesindeki deprem arşivini (XML 
 {
   "01": [
     {
-      "name": "2003.01.01 22:15:31",
+      "date": "2003.01.01 22:15:31",
       "location": "EGE DENiZi",
       "lat": 38.5515,
       "lng": 25.4177,
@@ -41,7 +41,7 @@ This small application pulls the earthquake data (XML files) from the web site o
 {
   "01": [
     {
-      "name": "2003.01.01 22:15:31",
+      "date": "2003.01.01 22:15:31",
       "location": "EGE DENiZi",
       "lat": 38.5515,
       "lng": 25.4177,
