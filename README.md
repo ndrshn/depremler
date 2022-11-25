@@ -60,6 +60,6 @@ To convert existing information to more easily available ways for educational an
 
 ### Licence
 
-All Information belong to Kandilli Observatory and Earthquake Research Institute of Boğaziçi University.
+All Information belongs to Kandilli Observatory and Earthquake Research Institute of Boğaziçi University.
 
 [Source](http://www.koeri.boun.edu.tr/scripts/lasteq.asp)
