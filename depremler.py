@@ -28,7 +28,7 @@ for i in range(startYear,endYear+1):
           "depth": float(item["@Depth"])
         })
         index += 1      
-  with open(f"{i}.json", "w", encoding='utf-8') as json_file:
+  with open(f"./viewer/data/{i}.json", "w", encoding='utf-8') as json_file:
     json_file.write(json.dumps(results,indent=2))
     json_file.close()
 end = time.time()
