@@ -1,6 +1,6 @@
 @charset "UTF-8"; /*! normalize.css v4.2.0 | MIT License | github.com/necolas/normalize.css */
 html {
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", sans-serif !important;
   line-height: 1.15;
   -ms-text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
@@ -8,8 +8,9 @@ html {
 
 body {
   margin: 0;
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", sans-serif !important;
   background-color: #f0f2f5;
+  color: #3f536e;
 }
 
 article,

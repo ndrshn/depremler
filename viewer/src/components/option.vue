@@ -4,8 +4,10 @@
     v-show="!hidden"
     ref="option"
     class="os-select__option"
+    :data-label="showLabel"
+    :data-value="props.value"
     :class="[
-      disabled ? 'os-select__option--disabled' : '',
+      props.disabled ? 'os-select__option--disabled' : '',
       selected ? 'os-select__option--selected' : '',
       isFocus ? 'os-select__option--focus' : '',
     ]"
@@ -65,6 +67,14 @@ onBeforeUnmount(() => {
       }
     });
   }
+});
+
+defineExpose({
+  selected,
+  option,
+  isFocus,
+  hidden,
+  searchLabel,
 });
 </script>
 

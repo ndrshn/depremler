@@ -18,54 +18,52 @@
       </svg>
     </header>
     <section class="content">
-      <div class="row os-row">
-        <div class="col-md-24" style="margin-bottom: 24px">
-          <os-card>
+      <a-row :gutter="[24, 24]">
+        <a-col :span="24">
+          <a-card size="small">
             <div id="map" />
-          </os-card>
-        </div>
-        <div class="col-md-24">
-          <os-card :title="`${year} Depremleri`">
+          </a-card>
+        </a-col>
+        <a-col :span="24">
+          <a-card :title="`${year} Depremleri (${data.length} deprem)`" size="small">
             <template #extra>
-              <os-select size="small" v-model="year" @on-change="onChange">
-                <os-option v-for="y in years" :value="y" :label="y" />
-              </os-select>
+              <a-select
+                v-model:value="year"
+                style="width: 120px"
+                size="small"
+                @change="loadData"
+              >
+                <a-select-option v-for="y in years" :key="y" :value="y">{{
+                  y
+                }}</a-select-option>
+              </a-select>
             </template>
-            <os-table
-              v-if="data2003.length > 0"
-              :data="data2003"
+            <a-table
+              :data-source="data"
               :columns="columns"
-              border
-              pagination
+              bordered
+              :pagination="{ pageSize: 100 }"
               size="small"
-              stripe
-              style="width: 100%"
-            >
-              <template #bodyCell="{ record, column }">
-                <template v-if="column.key === 'id'">
-                  <os-tag color="info">{{ record.id }}</os-tag>
-                </template>
-                <template v-else>{{ record[column.key] }}</template>
-              </template>
-            </os-table>
-          </os-card>
-        </div>
-      </div>
+            />
+          </a-card>
+        </a-col>
+      </a-row>
     </section>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue";
+import {
+  Table as ATable,
+  Card as ACard,
+  Select as ASelect,
+  SelectOption as ASelectOption,
+  Col as ACol,
+  Row as ARow,
+} from "ant-design-vue";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-
-import OsTable from "./components/table.vue";
-import data2003 from "../data/2003.json";
-import OsTag from "./components/tag.vue";
-import OsCard from "./components/card.vue";
-import OsSelect from "./components/select.vue";
-import OsOption from "./components/option.vue";
 
 const years = [
   2003,
@@ -92,47 +90,70 @@ const years = [
 
 const year = ref(2003);
 const map = ref();
+const data = ref([]);
+const loading = ref(false);
 
 const columns = [
   {
     title: "id",
     key: "id",
+    dataIndex: "id",
     align: "center",
+    width: 100,
   },
   {
     title: "Location",
     key: "location",
+    dataIndex: "location",
   },
   {
     title: "Lat",
     key: "lat",
+    dataIndex: "lat",
     align: "right",
   },
   {
     title: "Lng",
     key: "lng",
+    dataIndex: "lng",
     align: "right",
   },
   {
     title: "Mag",
     key: "mag",
+    dataIndex: "mag",
     align: "right",
   },
   {
     title: "Depth",
     key: "depth",
+    dataIndex: "depth",
     align: "right",
   },
 ];
 
-const onChange = (value) => {
-  year.value = value;
-};
+const loadData = async (value) => {
+  loading.value = true;
+  await import(`../data/${value}.json`).then((res) => {
+    data.value = res.default;
+  });
+  loading.value = false;
 
+  data.value.forEach((el) => {
+    const point = L.circle([el.lat, el.lng], {
+      color: `hsl(${(8 - el.mag) * 180}, 100%, 50%)`,
+      fillOpacity: 0.9,
+      radius: 200 * el.mag,
+    }).addTo(map.value);
+    point.bindPopup(`${el.location}: M${el.mag} @ ${el.date}`);
+  });
+};
+loadData(year.value);
 onMounted(() => {
   map.value = L.map("map").setView([38.9637, 35.2433], 6);
   L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png", {
-    attribution: "",
+    attribution: "...",
+    maxZoom: 18,
   }).addTo(map.value);
 });
 </script>
@@ -183,6 +204,7 @@ onMounted(() => {
   min-height: calc(100vh - 40px);
   height: auto;
   padding: 24px;
+  z-index: 1;
 }
 
 @-webkit-keyframes tada-keyframes {

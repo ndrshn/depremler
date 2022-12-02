@@ -23,12 +23,14 @@
       <span
         v-show="showPlaceholder && !props.filterable"
         class="os-select__placeholder"
+        data-type="multiple"
         >{{ localePlaceholder }}</span
       >
       <span
         v-show="!showPlaceholder && !props.multiple && !props.filterable"
         class="os-select__selected"
-        >{{ selectedSingle }}</span
+        data-type="single"
+        >{{ model }}</span
       >
       <input
         v-if="props.filterable"
@@ -64,7 +66,7 @@
         <ul v-show="notFound" class="os-select__not-found">
           <li>{{ localeNotFoundText }}</li>
         </ul>
-        <ul v-show="!notFound" ref="options" class="os-select__list">
+        <ul v-show="!notFound" ref="optionsRef" class="os-select__list">
           <slot></slot>
         </ul>
       </div>
@@ -83,6 +85,7 @@ import {
   nextTick,
   useSlots,
   toRef,
+  withDirectives,
 } from "vue";
 import { onClickOutside } from "@vueuse/core";
 
@@ -137,13 +140,15 @@ const props = defineProps({
 const _select = ref();
 const visible = ref(false);
 const options = ref([]);
+const optionsRef = ref();
 const optionInstances = ref([]);
 const selectedSingle = ref("");
 const selectedMultiple = ref([]);
 const focusIndex = ref(0);
 const query = ref("");
 const notFound = ref(false);
-const model = ref(props.value);
+const modelRef = toRef(props, "value");
+const model = ref(modelRef.value);
 const input = ref();
 const popover = ref();
 
@@ -172,52 +177,6 @@ const localeNotFoundText = computed(() => {
     : props.notFoundText;
 });
 
-watch(model, () => {
-  emit("input", model.value);
-  modelToQuery();
-  if (props.multiple) {
-    updateMultipleSelected();
-  } else {
-    updateSingleSelected();
-  }
-});
-
-watch(visible, (newVal) => {
-  if (newVal) {
-    if (props.multiple && props.filterable) {
-      input.value.focus();
-    } else if (props.filterable) {
-      input.value.select();
-    }
-  } else {
-    if (props.filterable) {
-      input.value.blur();
-      setTimeout(() => {
-        broadcastQuery("");
-      }, 300);
-    }
-  }
-});
-
-watch(query, () => {
-  let isHidden = true;
-  nextTick(() => {
-    const options = slots.default();
-    options.forEach((option) => {
-      if (!option.hidden) {
-        isHidden = false;
-      }
-    });
-    notFound.value = isHidden;
-  });
-});
-
-onMounted(() => {
-  modelToQuery();
-  updateOptions();
-  document.addEventListener("keydown", handleKeydown);
-});
-
 const onSelectSelected = (value) => {
   if (model.value == value) {
     hideMenu();
@@ -235,15 +194,16 @@ const onSelectSelected = (value) => {
   } else {
     model.value = value;
     if (props.filterable) {
-      slots.default().forEach((option) => {
-        if (option.proxy.value === value) {
+      slots.default()[0].children.forEach((option) => {
+        if (option.props.value === value) {
           query.value =
-            typeof option.proxy.label === "undefined"
-              ? option.proxy.searchLabel
-              : option.proxy.label;
+            typeof option.props.label === "undefined"
+              ? option.props.searchLabel
+              : option.props.label;
         }
       });
     }
+    hideMenu();
   }
 };
 
@@ -283,7 +243,7 @@ const handleKeydown = (evt) => {
 
       let hasFocus = false;
 
-      const _options = slots.default();
+      const _options = slots.default()[0].children;
       _options.forEach((option) => {
         if (option.isFocus) {
           hasFocus = true;
@@ -300,7 +260,7 @@ const handleKeydown = (evt) => {
 
 const selectFirstOption = () => {
   let firstOption;
-  slots.default().forEach((option) => {
+  slots.default()[0].children.forEach((option) => {
     if (!firstOption && !option.hidden) {
       firstOption = option;
       option.doSelect();
@@ -310,10 +270,11 @@ const selectFirstOption = () => {
 
 const updateOptions = () => {
   const _options = [];
-  slots.default().forEach((option) => {
+  slots.default()[0].children.forEach((option) => {
     _options.push({
-      value: option.value,
-      label: typeof option.label === "undefined" ? option.innerHTML : option.label,
+      value: option.props.value,
+      label:
+        typeof option.props.label === "undefined" ? option.innerHTML : option.props.label,
     });
     optionInstances.value.push(option);
   });
@@ -343,10 +304,10 @@ const updateMultipleSelected = (init = false) => {
       const _model = model.value[i];
       for (let j = 0; j < options.value.length; j++) {
         const option = options.value[j];
-        if (_model === option.value) {
+        if (_model === option.props.value) {
           selected.push({
-            value: option.value,
-            label: option.label,
+            value: option.props.value,
+            label: option.props.label,
           });
         }
       }
@@ -358,7 +319,7 @@ const updateMultipleSelected = (init = false) => {
 
 const clearSingleSelect = () => {
   if (showCloseIcon.value) {
-    slots.default().forEach((option) => {
+    slots.default()[0].children.forEach((option) => {
       option.selected = false;
     });
     model.value = "";
@@ -380,10 +341,11 @@ const removeTag = (index) => {
 const toggleSingleSelected = (value, init = false) => {
   if (props.multiple) return;
   let label = "";
-  slots.default().forEach((option) => {
-    if (option.value === value) {
+  slots.default()[0].children.forEach((option) => {
+    if (option.props.value === value) {
       option.selected = true;
-      label = typeof option.label === "undefined" ? option.innerHTML : option.label;
+      label =
+        typeof option.props.label === "undefined" ? option.innerHTML : option.props.label;
     } else {
       option.selected = false;
     }
@@ -411,14 +373,15 @@ const toggleMultipleSelected = (values, init = false) => {
       value: values[i],
     });
   }
-
-  const _options = slots.default();
+  const _options = slots.default()[0].children;
   _options.forEach((option) => {
-    const index = values.indexOf(option.value);
+    const index = values.indexOf(option.props.value);
     if (index > -1) {
       option.selected = true;
       valueLabelArr[index].label =
-        typeof option.label === "undefined" ? option.vnode.innerHTML : option.label;
+        typeof option.props.label === "undefined"
+          ? option.vnode.innerHTML
+          : option.props.label;
     } else {
       option.selected = false;
     }
@@ -443,7 +406,7 @@ const navigateOptions = (direction) => {
   }
   let isValid = false;
   let hasValidOption = false; // avoid infinite loops
-  const _options = slots.default();
+  const _options = slots.default()[0].children;
   _options.forEach((option, idx) => {
     if (idx + 1 === focusIndex.value) {
       isValid = !option.disabled && !option.hidden;
@@ -477,11 +440,13 @@ const resetScrollTop = () => {
 const handleBlur = () => {
   setTimeout(() => {
     if (!props.multiple && model.value !== "") {
-      const _options = slots.default();
+      const _options = slots.default()[0].children;
       _options.forEach((option) => {
-        if (option.value === model.value) {
+        if (option.props.value === model.value) {
           query.value =
-            typeof option.label === "undefined" ? option.searchLabel : option.label;
+            typeof option.props.label === "undefined"
+              ? option.searchLabel
+              : option.props.label;
         }
       });
     } else {
@@ -498,23 +463,67 @@ const handleInputDelete = () => {
 
 const modelToQuery = () => {
   if (!props.multiple && props.filterable && typeof model.value !== "undefined") {
-    const _options = slots.default();
+    const _options = slots.default()[0].children;
     _options.forEach((option) => {
-      if (model.value === option.value) {
-        query.value = option.label || option.searchLabel || option.value;
+      if (model.value === option.props.value) {
+        query.value = option.props.label || option.searchLabel || option.props.value;
       }
     });
   }
-};
-
-const broadcastQuery = () => {
-  //this.broadcast("os-option", "on-query-change", val);
 };
 
 const onOptionDestroy = (index) => {
   options.value.splice(index, 1);
   optionInstances.value.splice(index, 1);
 };
+
+watch(modelRef, (newValue) => {
+  model.value = newValue;
+  emit("input", model.value);
+  modelToQuery();
+  if (props.multiple) {
+    updateMultipleSelected();
+  } else {
+    updateSingleSelected();
+  }
+});
+
+watch(visible, (newVal) => {
+  if (newVal) {
+    if (props.multiple && props.filterable) {
+      input.value.focus();
+    } else if (props.filterable) {
+      input.value.select();
+    }
+  } else {
+    if (props.filterable) {
+      input.value.blur();
+      setTimeout(() => {
+        broadcastQuery("");
+      }, 300);
+    }
+  }
+});
+
+watch(query, () => {
+  let isHidden = true;
+  nextTick(() => {
+    const _options = slots.default()[0].children;
+    _options.forEach((option) => {
+      if (!option.hidden) {
+        isHidden = false;
+      }
+    });
+    notFound.value = isHidden;
+  });
+});
+
+onMounted(() => {
+  console.log(slots.default()[0].children[0].prototype);
+  modelToQuery();
+  updateOptions();
+  document.addEventListener("keydown", handleKeydown);
+});
 
 defineExpose({ onOptionDestroy, optionInstances, options, onSelectSelected });
 
