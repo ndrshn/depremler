@@ -1,6 +1,8 @@
-# 2003-2022 Arasında Olan Depremler
+![screenchot](./screenshot.jpg)
 
-Bu küçük uygulama Kandilli Rasathanesi'nin sitesindeki deprem arşivini (XML dosyalarını) çekip (yıllara göre ayırarak) JSON formatında kaydeder.
+# Türkiye'deki Depremler
+
+Bu küçük uygulama, 2003 yılından itibaren gerçekleşen depremleri Kandilli Rasathanesi'nin sitesinden çekip (yıllara göre ayırarak) JSON formatında kaydeder.
 
 ### Veri Formatı
 
@@ -23,6 +25,19 @@ Bu küçük uygulama Kandilli Rasathanesi'nin sitesindeki deprem arşivini (XML 
 
 Var olan bilgileri eğitimsel ve akademik çalışmalar için daha kolay kullanılabilir şekile dönüştürmek.
 
+### Kullanım
+
+```bash
+  git clone https://github.com/ndrshn/depremler.git
+  cd ./depremler
+  python ./depremler.py
+  cd ./viewer
+  npm i
+  npm run dev
+```
+
+Tarayıcınızda http://localhost:3000 adresini açın.
+
 ### Lisans
 
 Tüm bilgiler T.C. Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araştırma Enstitüsü'ne aittir.
@@ -31,7 +46,7 @@ Tüm bilgiler T.C. Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araş
 
 # Earhquakes Between 2003-2022 in Türkiye
 
-This small application pulls the earthquake data (XML files) from the web site of Kandilli Observatory and saves them into JSON files year by year.
+This app pulls earthquakes since 2003 from the Kandilli Observatory website and saves them in JSON format (separated by year).
 
 ### Data Format
 
@@ -53,6 +68,19 @@ This small application pulls the earthquake data (XML files) from the web site o
 ### Purpose
 
 To convert existing information to more easily available ways for educational and academic studies.
+
+### Usage
+
+```bash
+  git clone https://github.com/ndrshn/depremler.git
+  cd ./depremler
+  python ./depremler.py
+  cd ./viewer
+  npm i
+  npm run dev
+```
+
+Open http://localhost:3000 in your browser.
 
 ### Licence
 
