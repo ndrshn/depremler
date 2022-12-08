@@ -44,7 +44,7 @@ Tüm bilgiler T.C. Boğaziçi Üniversitesi Kandilli Rasathanesi ve Deprem Araş
 
 [Kaynak](http://www.koeri.boun.edu.tr/scripts/lst9.asp)
 
-# Earhquakes Between 2003-2022 in Türkiye
+# Earhquakes in Türkiye
 
 This app pulls earthquakes since 2003 from the Kandilli Observatory website and saves them in JSON format (separated by year).
 
