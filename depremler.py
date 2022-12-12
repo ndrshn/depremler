@@ -20,7 +20,7 @@ for i in range(startYear,endYear+1):
       for item in items:
         results.insert(index,{
           "id": index,
-          "date": str(item["@name"]).strip(),
+          "date": str(item["@name"]).strip().replace('.','-'),
           "location": str(item["@lokasyon"]).replace('\u00ddlksel','ilksel').replace('   ','').strip(),
           "lat": float(item["@lat"]),
           "lng": float(item["@lng"]),
