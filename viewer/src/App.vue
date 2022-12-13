@@ -19,41 +19,48 @@
       <span>Earthquakes in Türkiye</span>
     </header>
     <section class="content">
-      <a-row :gutter="[24, 24]">
-        <a-col :span="24">
-          <a-card size="small">
-            <div id="map" />
-          </a-card>
-        </a-col>
-        <a-col :span="24">
-          <a-card size="small">
-            <a-table
-              :data-source="data"
-              :columns="columns"
-              bordered
-              :loading="loading"
-              :pagination="{ pageSize: 100 }"
-              size="small"
-            >
-              <template #title>
-                <a-space>
-                  <a-select
-                    v-model:value="year"
-                    style="width: 100%"
-                    size="small"
-                    @change="loadData"
-                  >
-                    <a-select-option v-for="y in years" :key="y" :value="y">{{
-                      y
-                    }}</a-select-option>
-                  </a-select>
-                  <span>{{ data.length }} earthquakes</span>
-                </a-space>
-              </template>
-            </a-table>
-          </a-card>
-        </a-col>
-      </a-row>
+      <a-tabs v-model:activeKey="activeKey" type="card">
+        <a-tab-pane key="1" tab="Data">
+          <a-row :gutter="[24, 24]">
+            <a-col :span="24">
+              <a-card size="small">
+                <div id="map" />
+              </a-card>
+            </a-col>
+            <a-col :span="24">
+              <a-card size="small">
+                <a-table
+                  :data-source="data"
+                  :columns="columns"
+                  bordered
+                  :loading="loading"
+                  :pagination="{ pageSize: 100, size: 'small' }"
+                  size="small"
+                >
+                  <template #title>
+                    <a-space>
+                      <a-select
+                        v-model:value="year"
+                        style="width: 100%"
+                        size="small"
+                        @change="loadData"
+                      >
+                        <a-select-option v-for="y in years" :key="y" :value="y">{{
+                          y
+                        }}</a-select-option>
+                      </a-select>
+                      <span>{{ data.length }} earthquakes</span>
+                    </a-space>
+                  </template>
+                </a-table>
+              </a-card>
+            </a-col>
+          </a-row>
+        </a-tab-pane>
+        <a-tab-pane key="2" :tab="`Statistics for ${year}`" :disabled="loading">
+          <Statistics :data="data" v-if="activeKey === '2'" />
+        </a-tab-pane>
+      </a-tabs>
     </section>
   </div>
 </template>
@@ -68,9 +75,14 @@ import {
   Col as ACol,
   Row as ARow,
   Space as ASpace,
+  Tabs as ATabs,
+  TabPane as ATabPane,
 } from "ant-design-vue";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import Statistics from "./components/Statistics.vue";
+
+const activeKey = ref("1");
 
 const years = [
   2003,
@@ -94,6 +106,7 @@ const years = [
   2021,
   2022,
 ];
+
 const year = ref(2003);
 const map = ref();
 const data = ref([]);
@@ -109,7 +122,6 @@ const levelLayers = reactive({
   "M7.0-M7.9": L.layerGroup([]),
 });
 const layerControl = ref();
-const location = ref("");
 const columns = [
   {
     title: "id",

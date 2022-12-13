@@ -9,11 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@antv/g2": "^5.0.0-beta.3",
+    "@antv/g2plot": "^2.4.23",
+    "@opd/g2plot-vue": "^3.6.4",
     "@vueuse/core": "^9.6.0",
     "ant-design-vue": "^3.2.15",
     "leaflet": "^1.9.3",
     "leaflet-heatmap": "^1.0.0",
     "leaflet-webgl-heatmap": "^0.2.7",
+    "lodash": "^4.17.21",
     "vue": "^3.2.41"
   },
   "devDependencies": {
