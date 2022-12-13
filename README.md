@@ -1,4 +1,6 @@
-![screenchot](./screenshot.jpg)
+![screenshot-1](./screenshot-1.jpg)
+
+![screenshot-2](./screenshot-2.jpg)
 
 # Türkiye'deki Depremler
 
