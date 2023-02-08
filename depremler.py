@@ -2,9 +2,10 @@ import requests
 import time
 import xmltodict
 import json
+from datetime import date
 
 startYear = 2023
-endYear = 2023
+endYear = date.today().year
 
 print("veriler alınıyor...")
 
@@ -18,12 +19,13 @@ for i in range(startYear,endYear+1):
     if(response.status_code != 404):
       items = data_dict["eqlist"]["earhquake"]
       for item in items:
+        
         results.insert(index,{
           "id": index,
           "date": str(item["@name"]).strip().replace('.','-'),
           "location": str(item["@lokasyon"]).replace('\u00ddlksel','ilksel').replace('   ','').strip(),
-          "lat": float(item["@lat"]),
-          "lng": float(item["@lng"]),
+          "lat": float(item["@lat"].replace(' ','')),
+          "lng": float(item["@lng"].replace(' ', '')),
           "mag": float(str(item["@mag"]).replace('-.-','0.0')),
           "depth": float(item["@Depth"])
         })
