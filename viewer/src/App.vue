@@ -1,18 +1,9 @@
 <template>
   <div class="container">
     <header class="header">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="icon icon-tabler icon-tabler-activity logo"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        stroke-width="2"
-        stroke="currentColor"
-        fill="none"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
+      <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-activity logo" width="24" height="24"
+        viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round"
+        stroke-linejoin="round">
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M3 12h4l3 8l4 -16l3 8h4" />
       </svg>
@@ -29,27 +20,17 @@
             </a-col>
             <a-col :span="24">
               <a-card size="small">
-                <a-table
-                  :data-source="data"
-                  :columns="columns"
-                  bordered
-                  :loading="loading"
-                  :pagination="{ pageSize: 100, size: 'small' }"
-                  size="small"
-                >
+                <a-table :data-source="data" :columns="columns" bordered :loading="loading"
+                  :pagination="{ pageSize: 100, size: 'small' }" size="small">
                   <template #title>
                     <a-space>
-                      <a-select
-                        v-model:value="year"
-                        style="width: 100%"
-                        size="small"
-                        @change="loadData"
-                      >
+                      <a-select v-model:value="year" style="width: 100%" size="small" @change="loadData">
                         <a-select-option v-for="y in years" :key="y" :value="y">{{
                           y
                         }}</a-select-option>
                       </a-select>
-                      <span>{{ data.length }} earthquakes</span>
+                      <span>{{ data.length }} earthquakes. Filter in date:</span>
+                      <a-range-picker v-model:value="range" @change="loadData" size="small" :bordered="false" />
                     </a-space>
                   </template>
                 </a-table>
@@ -66,8 +47,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from "vue";
+import { ref, onMounted, reactive, computed } from "vue";
 import {
+  Button as AButton,
   Table as ATable,
   Card as ACard,
   Select as ASelect,
@@ -77,41 +59,24 @@ import {
   Space as ASpace,
   Tabs as ATabs,
   TabPane as ATabPane,
+  RangePicker as ARangePicker,
 } from "ant-design-vue";
+import dayjs from "dayjs";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import Statistics from "./components/Statistics.vue";
 
 const activeKey = ref("1");
 
-const years = [
-  2003,
-  2004,
-  2005,
-  2006,
-  2007,
-  2008,
-  2009,
-  2010,
-  2011,
-  2012,
-  2013,
-  2014,
-  2015,
-  2016,
-  2017,
-  2018,
-  2019,
-  2020,
-  2021,
-  2022,
-  2023,
-];
+const years = Array(new Date().getFullYear() - 2002)
+  .fill()
+  .map((_, idx) => 2003 + idx);
 
 const year = ref(2003);
 const map = ref();
 const data = ref([]);
 const loading = ref(false);
+const range = ref([dayjs(`${year.value}-01-01`), dayjs(`${year.value}-12-31`)]);
 const levelLayers = reactive({
   "M0.0-M0.9": L.layerGroup([]),
   "M1.0-M1.9": L.layerGroup([]),
@@ -180,11 +145,7 @@ const findRange = (mag) => {
   return `M${Math.floor(mag).toFixed(1)}-M${(Math.floor(mag) + 0.9).toFixed(1)}`;
 };
 
-const loadData = async (value) => {
-  loading.value = true;
-  await import(`../data/${value}.json`).then((res) => {
-    data.value = res.default;
-  });
+const renderData = () => {
   Object.keys(levelLayers).forEach((el) => {
     levelLayers[el].clearLayers();
   });
@@ -202,6 +163,19 @@ const loadData = async (value) => {
     layerControl.value.removeLayer(levelLayers[el]);
     layerControl.value.addOverlay(levelLayers[el], el);
   });
+};
+
+const loadData = async () => {
+  loading.value = true;
+  range.value[0] = range.value[0].year(year.value);
+  range.value[1] = range.value[1].year(year.value);
+  const from = range.value[0];
+  const to = range.value[1];
+  await import(`../data/${year.value}.json`).then((res) => {
+    data.value = res.default;
+  });
+  data.value = data.value.filter((d) => dayjs(d.date) >= from && dayjs(d.date) <= to);
+  renderData();
   loading.value = false;
 };
 
@@ -388,10 +362,7 @@ onMounted(() => {
   border-radius: 5px;
 }
 
-.ant-input-search
-  > .ant-input-group
-  > .ant-input-group-addon:last-child
-  .ant-input-search-button {
+.ant-input-search>.ant-input-group>.ant-input-group-addon:last-child .ant-input-search-button {
   border-radius: 0 5px 5px 0;
 }
 
