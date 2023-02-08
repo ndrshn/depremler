@@ -3,8 +3,8 @@ import time
 import xmltodict
 import json
 
-startYear = 2003
-endYear = 2022
+startYear = 2023
+endYear = 2023
 
 print("veriler alınıyor...")
 
