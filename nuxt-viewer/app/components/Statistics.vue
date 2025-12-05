@@ -140,7 +140,10 @@ const avgDepth = computed(() => {
 })
 
 const dailyAvg = computed(() => {
-  return props.data.length / 365
+  // Calculate days in year (account for leap years)
+  const isLeapYear = (props.year % 4 === 0 && props.year % 100 !== 0) || (props.year % 400 === 0)
+  const daysInYear = isLeapYear ? 366 : 365
+  return props.data.length / daysInYear
 })
 
 const maxMag = computed(() => {

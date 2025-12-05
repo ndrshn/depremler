@@ -263,7 +263,7 @@ const initMap = async () => {
   
   map = L.map('map').setView([38.9637, 35.2433], 6)
   L.tileLayer('https://cartodb-basemaps-b.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
-    attribution: '...',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     maxZoom: 20
   }).addTo(map)
 
