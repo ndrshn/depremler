@@ -140,7 +140,6 @@ const avgDepth = computed(() => {
 })
 
 const dailyAvg = computed(() => {
-  // Calculate days in year (account for leap years)
   const isLeapYear = (props.year % 4 === 0 && props.year % 100 !== 0) || (props.year % 400 === 0)
   const daysInYear = isLeapYear ? 366 : 365
   return props.data.length / daysInYear
@@ -158,59 +157,67 @@ const maxDepth = computed(() => {
   return { depth: max.depth, earthquake: max }
 })
 
-const getColorForMag = (mag: number): number => {
-  if (mag >= 0 && mag < 3) return 175
-  else if (mag >= 3 && mag < 4) return 100
-  else if (mag >= 4 && mag < 5) return 75
-  else if (mag >= 5 && mag < 6) return 50
-  else if (mag >= 6 && mag < 7) return 25
-  else return 0
-}
+// Magnitude range definitions (static, defined once outside computed)
+// M7+ uses Infinity as the open-ended upper bound; no recorded earthquake has exceeded M10
+const MAG_RANGES = [
+  { range: 'M0-1', min: 0, max: 1, color: 175 },
+  { range: 'M1-2', min: 1, max: 2, color: 175 },
+  { range: 'M2-3', min: 2, max: 3, color: 175 },
+  { range: 'M3-4', min: 3, max: 4, color: 100 },
+  { range: 'M4-5', min: 4, max: 5, color: 75 },
+  { range: 'M5-6', min: 5, max: 6, color: 50 },
+  { range: 'M6-7', min: 6, max: 7, color: 25 },
+  { range: 'M7+', min: 7, max: Infinity, color: 0 }
+]
 
-const magDistribution = computed(() => {
-  const ranges = [
-    { range: 'M0-1', min: 0, max: 1, color: 175 },
-    { range: 'M1-2', min: 1, max: 2, color: 175 },
-    { range: 'M2-3', min: 2, max: 3, color: 175 },
-    { range: 'M3-4', min: 3, max: 4, color: 100 },
-    { range: 'M4-5', min: 4, max: 5, color: 75 },
-    { range: 'M5-6', min: 5, max: 6, color: 50 },
-    { range: 'M6-7', min: 6, max: 7, color: 25 },
-    { range: 'M7+', min: 7, max: 10, color: 0 }
-  ]
+// Depth range definitions (static, defined once outside computed)
+// 200km+ uses Infinity as the open-ended upper bound; deepest recorded earthquakes are ~700km
+const DEPTH_RANGES = [
+  { range: '0-10km', min: 0, max: 10 },
+  { range: '10-20km', min: 10, max: 20 },
+  { range: '20-50km', min: 20, max: 50 },
+  { range: '50-100km', min: 50, max: 100 },
+  { range: '100-200km', min: 100, max: 200 },
+  { range: '200km+', min: 200, max: Infinity }
+]
 
-  return ranges.map((r) => ({
-    ...r,
-    count: props.data.filter((d) => d.mag >= r.min && d.mag < r.max).length
-  }))
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Single-pass bucketing: one reduce instead of 26 filter calls
+const distributions = computed(() => {
+  const magCounts = new Array(MAG_RANGES.length).fill(0)
+  const depthCounts = new Array(DEPTH_RANGES.length).fill(0)
+  const monthCounts = new Array(12).fill(0)
+
+  for (const d of props.data) {
+    for (let i = 0; i < MAG_RANGES.length; i++) {
+      if (d.mag >= MAG_RANGES[i].min && d.mag < MAG_RANGES[i].max) {
+        magCounts[i]++
+        break
+      }
+    }
+    for (let i = 0; i < DEPTH_RANGES.length; i++) {
+      if (d.depth >= DEPTH_RANGES[i].min && d.depth < DEPTH_RANGES[i].max) {
+        depthCounts[i]++
+        break
+      }
+    }
+    const monthIdx = parseInt(d.date.substring(5, 7), 10) - 1
+    if (monthIdx >= 0 && monthIdx < 12) monthCounts[monthIdx]++
+  }
+
+  return { magCounts, depthCounts, monthCounts }
 })
 
-const depthDistribution = computed(() => {
-  const ranges = [
-    { range: '0-10km', min: 0, max: 10 },
-    { range: '10-20km', min: 10, max: 20 },
-    { range: '20-50km', min: 20, max: 50 },
-    { range: '50-100km', min: 50, max: 100 },
-    { range: '100-200km', min: 100, max: 200 },
-    { range: '200km+', min: 200, max: 1000 }
-  ]
+const magDistribution = computed(() =>
+  MAG_RANGES.map((r, i) => ({ ...r, count: distributions.value.magCounts[i] }))
+)
 
-  return ranges.map((r) => ({
-    ...r,
-    count: props.data.filter((d) => d.depth >= r.min && d.depth < r.max).length
-  }))
-})
+const depthDistribution = computed(() =>
+  DEPTH_RANGES.map((r, i) => ({ ...r, count: distributions.value.depthCounts[i] }))
+)
 
-const monthlyDistribution = computed(() => {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  
-  return months.map((month, idx) => {
-    const monthNum = String(idx + 1).padStart(2, '0')
-    const count = props.data.filter((d) => {
-      const dateMonth = d.date.substring(5, 7)
-      return dateMonth === monthNum
-    }).length
-    return { month, count }
-  })
-})
+const monthlyDistribution = computed(() =>
+  MONTHS.map((month, i) => ({ month, count: distributions.value.monthCounts[i] }))
+)
 </script>

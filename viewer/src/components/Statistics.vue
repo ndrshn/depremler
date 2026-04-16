@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from "vue";
+import { computed } from "vue";
 import { LineChart, ColumnChart, HistogramChart } from "@opd/g2plot-vue";
 import {
   Card as ACard,
@@ -73,11 +73,6 @@ import {
   Row as ARow,
   Statistic as AStatistic,
 } from "ant-design-vue";
-import _ from "lodash";
-import dayjs from "dayjs";
-import "dayjs/locale/tr";
-
-dayjs.locale("tr");
 
 const props = defineProps({
   data: {
@@ -85,93 +80,101 @@ const props = defineProps({
     default: () => [],
   },
 });
-const avgMag = ref(0);
-const avgDepth = ref(0);
 
-const maxMag = reactive({
-  mag: -1,
-  earthquake: {},
+// Single-pass aggregation: compute all derived values in one reduce
+const stats = computed(() => {
+  if (!props.data.length) {
+    return {
+      sumMag: 0,
+      sumDepth: 0,
+      maxMag: 0,
+      maxMagEq: {},
+      maxDepth: 0,
+      maxDepthEq: {},
+      magGroups: {},
+      dayGroups: {},
+    };
+  }
+
+  return props.data.reduce(
+    (acc, d) => {
+      acc.sumMag += d.mag;
+      acc.sumDepth += d.depth;
+
+      if (d.mag > acc.maxMag) {
+        acc.maxMag = d.mag;
+        acc.maxMagEq = d;
+      }
+      if (d.depth > acc.maxDepth) {
+        acc.maxDepth = d.depth;
+        acc.maxDepthEq = d;
+      }
+
+      const magKey = d.mag;
+      acc.magGroups[magKey] = (acc.magGroups[magKey] || 0) + 1;
+
+      const dayKey = d.date.substring(0, 10);
+      acc.dayGroups[dayKey] = (acc.dayGroups[dayKey] || 0) + 1;
+
+      return acc;
+    },
+    {
+      sumMag: 0,
+      sumDepth: 0,
+      maxMag: -Infinity,
+      maxMagEq: {},
+      maxDepth: -Infinity,
+      maxDepthEq: {},
+      magGroups: {},
+      dayGroups: {},
+    }
+  );
 });
 
-const maxDepth = reactive({
-  depth: -1,
-  earthquake: {},
-});
+const avgMag = computed(() =>
+  props.data.length ? stats.value.sumMag / props.data.length : 0
+);
 
-const configMag = reactive({
+const avgDepth = computed(() =>
+  props.data.length ? stats.value.sumDepth / props.data.length : 0
+);
+
+const maxMag = computed(() => ({
+  mag: stats.value.maxMag === -Infinity ? 0 : stats.value.maxMag,
+  earthquake: stats.value.maxMagEq,
+}));
+
+const maxDepth = computed(() => ({
+  depth: stats.value.maxDepth === -Infinity ? 0 : stats.value.maxDepth,
+  earthquake: stats.value.maxDepthEq,
+}));
+
+const configMag = computed(() => ({
   xField: "mag",
   yField: "count",
-  label: {
-    position: "top",
-  },
-  data: [],
-});
+  label: { position: "top" },
+  data: Object.keys(stats.value.magGroups)
+    .map((mag) => ({ mag, count: stats.value.magGroups[mag] }))
+    .sort((a, b) => (a.mag > b.mag ? 1 : -1)),
+}));
 
-const configDepth = reactive({
+const configDepth = computed(() => ({
   binField: "depth",
   binWidth: 5,
-  label: {
-    position: "top",
-  },
-  data: [],
-});
+  label: { position: "top" },
+  data: props.data,
+}));
 
-const configDay = reactive({
+const configDay = computed(() => ({
   xField: "day",
   yField: "count",
-  label: {
-    position: "top",
-  },
-  slider: {
-    start: 0.0,
-    end: 0.25,
-  },
-  data: [],
-});
-
-const populateData = () => {
-  props.data.forEach((data) => {
-    avgMag.value += data.mag;
-    avgDepth.value += data.depth;
-    if (data.mag > maxMag.mag) {
-      maxMag.mag = data.mag;
-      maxMag.earthquake = data;
-    }
-    if (data.depth > maxDepth.depth) {
-      maxDepth.depth = data.depth;
-      maxDepth.earthquake = data;
-    }
-  });
-  avgMag.value = avgMag.value / props.data.length;
-  avgDepth.value = avgDepth.value / props.data.length;
-
-  configDepth.data = props.data;
-  const groupedMag = _.groupBy(props.data, "mag");
-  configMag.data = Object.keys(groupedMag)
-    .map((el) => ({
-      mag: el,
-      count: groupedMag[el].length,
-    }))
-    .sort((a, b) => a.mag > b.mag);
-
-  const groupedDate = _.groupBy(
-    props.data.map((data) => ({ ...data, dayjs: dayjs(data.date).format("YYYY-MM-DD") })),
-    "dayjs"
-  );
-  configDay.data = Object.keys(groupedDate).map((el) => ({
-    day: el,
-    count: groupedDate[el].length,
-  }));
-};
-
-populateData();
-
-watch(
-  () => props.data,
-  (newData) => {
-    populateData();
-  }
-);
+  label: { position: "top" },
+  slider: { start: 0.0, end: 0.25 },
+  data: Object.keys(stats.value.dayGroups).map((day) => ({
+    day,
+    count: stats.value.dayGroups[day],
+  })),
+}));
 </script>
 
 <style></style>
