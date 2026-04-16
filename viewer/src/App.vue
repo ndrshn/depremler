@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from "vue";
+import { ref, onMounted, reactive, computed, defineAsyncComponent, watch } from "vue";
 import {
   Button as AButton,
   Table as ATable,
@@ -64,7 +64,9 @@ import {
 import dayjs from "dayjs";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import Statistics from "./components/Statistics.vue";
+
+// Code-split the Statistics component so chart/dayjs-locale are not in the initial bundle
+const Statistics = defineAsyncComponent(() => import("./components/Statistics.vue"));
 
 const activeKey = ref("1");
 
@@ -73,19 +75,24 @@ const years = Array(new Date().getFullYear() - 2002)
   .map((_, idx) => 2003 + idx);
 
 const year = ref(2003);
-const map = ref();
-const data = ref([]);
+const mapRef = ref();
+const allEarthquakes = ref([]);  // full year data, used for map markers
+const data = ref([]);            // date-filtered data, used for the table
 const loading = ref(false);
 const range = ref([dayjs(`${year.value}-01-01`), dayjs(`${year.value}-12-31`)]);
+
+// All Leaflet circle objects keyed by earthquake id, so we can show/hide without DOM recreation
+const markerMap = {};
+
 const levelLayers = reactive({
-  "M0.0-M0.9": L.layerGroup([]),
-  "M1.0-M1.9": L.layerGroup([]),
-  "M2.0-M2.9": L.layerGroup([]),
-  "M3.0-M3.9": L.layerGroup([]),
-  "M4.0-M4.9": L.layerGroup([]),
-  "M5.0-M5.9": L.layerGroup([]),
-  "M6.0-M6.9": L.layerGroup([]),
-  "M7.0-M7.9": L.layerGroup([]),
+  "M0.0-M0.9": null,
+  "M1.0-M1.9": null,
+  "M2.0-M2.9": null,
+  "M3.0-M3.9": null,
+  "M4.0-M4.9": null,
+  "M5.0-M5.9": null,
+  "M6.0-M6.9": null,
+  "M7.0-M7.9": null,
 });
 const layerControl = ref();
 const columns = [
@@ -145,11 +152,23 @@ const findRange = (mag) => {
   return `M${Math.floor(mag).toFixed(1)}-M${(Math.floor(mag) + 0.9).toFixed(1)}`;
 };
 
-const renderData = () => {
-  Object.keys(levelLayers).forEach((el) => {
-    levelLayers[el].clearLayers();
+// Build all circles for the loaded year once; subsequent date changes only show/hide markers.
+const buildMarkers = () => {
+  // Clear previous markers from layers
+  Object.keys(levelLayers).forEach((key) => {
+    if (levelLayers[key]) {
+      levelLayers[key].clearLayers();
+      layerControl.value.removeLayer(levelLayers[key]);
+    } else {
+      levelLayers[key] = L.layerGroup([]);
+      mapRef.value.addLayer(levelLayers[key]);
+    }
   });
-  data.value.forEach((el) => {
+
+  // Clear old marker references
+  for (const id in markerMap) delete markerMap[id];
+
+  allEarthquakes.value.forEach((el) => {
     const point = L.circle([el.lat, el.lng], {
       color: `hsl(${getColor(el.mag)} 100% 50%)`,
       fillOpacity: 0.8,
@@ -157,33 +176,64 @@ const renderData = () => {
       zIndexOffset: Math.ceil(el.mag) * 10,
     });
     point.bindPopup(`${el.location}: M${el.mag} @ ${el.date}`);
-    levelLayers[findRange(el.mag)].addLayer(point);
+    // Store the range key alongside the marker so we can add/remove it from the right layer
+    point._rangeKey = findRange(el.mag);
+    point._dateStr = el.date.substring(0, 10);
+    markerMap[el.id] = point;
+    levelLayers[point._rangeKey].addLayer(point);
   });
-  Object.keys(levelLayers).forEach((el) => {
-    layerControl.value.removeLayer(levelLayers[el]);
-    layerControl.value.addOverlay(levelLayers[el], el);
+
+  Object.keys(levelLayers).forEach((key) => {
+    layerControl.value.addOverlay(levelLayers[key], key);
   });
+};
+
+// Show only markers that fall within the current date range without touching DOM for others.
+const applyDateFilter = () => {
+  const fromStr = range.value[0].format("YYYY-MM-DD");
+  const toStr = range.value[1].format("YYYY-MM-DD");
+
+  // Filter the table data (cheap string compare, no dayjs objects per item)
+  data.value = allEarthquakes.value.filter(
+    (d) => d.date.substring(0, 10) >= fromStr && d.date.substring(0, 10) <= toStr
+  );
+
+  // Show/hide map markers by adding/removing from their layer group
+  const filteredIds = new Set(data.value.map((d) => d.id));
+  for (const id in markerMap) {
+    const marker = markerMap[id];
+    const layer = levelLayers[marker._rangeKey];
+    const numId = Number(id);
+    if (filteredIds.has(numId)) {
+      if (!layer.hasLayer(marker)) layer.addLayer(marker);
+    } else {
+      if (layer.hasLayer(marker)) layer.removeLayer(marker);
+    }
+  }
 };
 
 const loadData = async () => {
   loading.value = true;
   range.value[0] = range.value[0].year(year.value);
   range.value[1] = range.value[1].year(year.value);
-  const from = range.value[0];
-  const to = range.value[1];
   await import(`../data/${year.value}.json`).then((res) => {
-    data.value = res.default;
+    allEarthquakes.value = res.default;
   });
-  data.value = data.value.filter((d) => dayjs(d.date) >= from && dayjs(d.date) <= to);
-  renderData();
+  if (mapRef.value) buildMarkers();
+  applyDateFilter();
   loading.value = false;
 };
+
+// Re-apply date filter when range changes without rebuilding markers
+watch(range, () => {
+  applyDateFilter();
+}, { deep: true });
 
 loadData(year.value);
 
 const initLegend = () => {
   var legend = L.control({ position: "bottomleft" });
-  legend.onAdd = function (map) {
+  legend.onAdd = function () {
     const list = L.DomUtil.create("ul", "legend");
     list.className = "legends";
     list.innerHTML += `<li class="legend"><i style="background-color: hsl(175 100% 50%)"></i><span>M0.0-2.9</span></li>`;
@@ -194,11 +244,11 @@ const initLegend = () => {
     list.innerHTML += `<li class="legend"><i style="background-color: hsl(0 100% 50%)"></i><span>M7.0-7.9</span></li>`;
     return list;
   };
-  legend.addTo(map.value);
+  legend.addTo(mapRef.value);
 };
 
 onMounted(() => {
-  map.value = L.map("map").setView([38.9637, 35.2433], 6);
+  mapRef.value = L.map("map").setView([38.9637, 35.2433], 6);
   L.tileLayer(
     "https://cartodb-basemaps-b.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png",
     {
@@ -206,12 +256,16 @@ onMounted(() => {
       attribution: "...",
       maxZoom: 20,
     }
-  ).addTo(map.value);
-  layerControl.value = L.control.layers({}, {}).addTo(map.value);
-  Object.keys(levelLayers).forEach((el) => {
-    map.value.addLayer(levelLayers[el]);
+  ).addTo(mapRef.value);
+  layerControl.value = L.control.layers({}, {}).addTo(mapRef.value);
+  // Initialize layer groups after map is ready
+  Object.keys(levelLayers).forEach((key) => {
+    levelLayers[key] = L.layerGroup([]);
+    mapRef.value.addLayer(levelLayers[key]);
   });
   initLegend();
+  // If data was loaded before the map mounted, build markers now
+  if (allEarthquakes.value.length) buildMarkers();
 });
 </script>
 

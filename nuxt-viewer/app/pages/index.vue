@@ -134,6 +134,9 @@ const dateTo = ref(`${selectedYear.value}-12-31`)
 const currentPage = ref(1)
 const pageSize = 100
 
+// In-memory cache so switching back to a previously loaded year is instant
+const dataCache = new Map<number, Earthquake[]>()
+
 const filteredData = computed(() => {
   if (!dateFrom.value || !dateTo.value) return earthquakes.value
   return earthquakes.value.filter((d) => {
@@ -165,6 +168,9 @@ let map: any = null
 let layerControl: any = null
 let levelLayers: Record<string, any> = {}
 
+// All Leaflet circle objects keyed by earthquake id for show/hide without DOM recreation
+const markerMap: Record<number, any> = {}
+
 const getColor = (mag: number): number => {
   if (mag >= 0.0 && mag < 3) return 175
   else if (mag >= 3.0 && mag < 4.0) return 100
@@ -178,43 +184,70 @@ const findRange = (mag: number): string => {
   return `M${Math.floor(mag).toFixed(1)}-M${(Math.floor(mag) + 0.9).toFixed(1)}`
 }
 
-const renderData = () => {
+// Build all circles once when the year's data is loaded; do not call on date filter changes.
+const buildMarkers = () => {
   if (!map || !layerControl || !L) return
 
-  Object.keys(levelLayers).forEach((el) => {
-    levelLayers[el].clearLayers()
+  // Clear previous markers
+  Object.keys(levelLayers).forEach((key) => {
+    levelLayers[key].clearLayers()
+    layerControl.removeLayer(levelLayers[key])
   })
+  for (const id in markerMap) delete markerMap[Number(id)]
 
-  filteredData.value.forEach((el) => {
+  earthquakes.value.forEach((el) => {
     const point = L.circle([el.lat, el.lng], {
       color: `hsl(${getColor(el.mag)} 100% 50%)`,
       fillOpacity: 0.8,
       radius: 50 * el.mag * el.mag
     })
     point.bindPopup(`${el.location}: M${el.mag} @ ${el.date}`)
-    const range = findRange(el.mag)
-    if (levelLayers[range]) {
-      levelLayers[range].addLayer(point)
+    const rangeKey = findRange(el.mag)
+    point._rangeKey = rangeKey
+    markerMap[el.id] = point
+    if (levelLayers[rangeKey]) {
+      levelLayers[rangeKey].addLayer(point)
     }
   })
 
-  Object.keys(levelLayers).forEach((el) => {
-    layerControl.removeLayer(levelLayers[el])
-    layerControl.addOverlay(levelLayers[el], el)
+  Object.keys(levelLayers).forEach((key) => {
+    layerControl.addOverlay(levelLayers[key], key)
   })
+}
+
+// Show/hide markers to match the current date filter without touching the DOM for unchanged markers.
+const applyDateFilter = () => {
+  if (!map || !L) return
+  const filteredIds = new Set(filteredData.value.map((d) => d.id))
+  for (const id in markerMap) {
+    const marker = markerMap[Number(id)]
+    const layer = levelLayers[marker._rangeKey]
+    if (!layer) continue
+    if (filteredIds.has(Number(id))) {
+      if (!layer.hasLayer(marker)) layer.addLayer(marker)
+    } else {
+      if (layer.hasLayer(marker)) layer.removeLayer(marker)
+    }
+  }
 }
 
 const loadData = async () => {
   loading.value = true
   currentPage.value = 1
-  
+
   dateFrom.value = `${selectedYear.value}-01-01`
   dateTo.value = `${selectedYear.value}-12-31`
 
   try {
-    const response = await fetch(`/data/${selectedYear.value}.json`)
-    earthquakes.value = await response.json()
-    renderData()
+    if (dataCache.has(selectedYear.value)) {
+      earthquakes.value = dataCache.get(selectedYear.value)!
+    } else {
+      const response = await fetch(`/data/${selectedYear.value}.json`)
+      const data: Earthquake[] = await response.json()
+      dataCache.set(selectedYear.value, data)
+      earthquakes.value = data
+    }
+    buildMarkers()
   } catch (error) {
     console.error('Failed to load earthquake data:', error)
     earthquakes.value = []
@@ -268,8 +301,8 @@ const initMap = async () => {
   }).addTo(map)
 
   layerControl = L.control.layers({}, {}).addTo(map)
-  Object.keys(levelLayers).forEach((el) => {
-    map.addLayer(levelLayers[el])
+  Object.keys(levelLayers).forEach((key) => {
+    map.addLayer(levelLayers[key])
   })
 
   initLegend()
@@ -281,7 +314,8 @@ onMounted(async () => {
   await loadData()
 })
 
+// When the date filter changes, only show/hide existing markers — no DOM recreation
 watch(filteredData, () => {
-  renderData()
+  applyDateFilter()
 })
 </script>
